@@ -1,0 +1,80 @@
+<script runat="server">
+  Platform.Load("Core", "1.1.1");
+  var contentType = 'application/json';
+    function getAccessToken(){
+  
+        var clientId, clientSecret, accountId, tenantId;
+        clientId = "Your CLIENT ID";
+        clientSecret = "YOUR CLIENT SECRET";
+        accountId = "MID";
+        tenantId = "YOUR TENANT ID";
+
+        var payload = '{"grant_type": "client_credentials","client_id": "'+clientId+'","client_secret": "'+clientSecret+'","account_id": "'+accountId+'"}';
+        var authurl = 'https://'+tenantId+'.auth.marketingcloudapis.com/v2/token';
+
+        var response = HTTP.Post(authurl, contentType, payload);
+
+        return Platform.Function.ParseJSON(response.Response[0]);
+    
+    }
+    var jsonresp = getAccessToken();
+    var authToken = jsonresp.access_token;
+    var restURL = jsonresp.rest_instance_url;
+    
+    Write(authToken+'<br>');
+    Write(restURL+'<br>');
+  
+ 
+    var endPoint = restURL + '/interaction/v1/interactions/journeyhistory/search?$page=' + 1 + '&$pageSize=' + 50;
+        var contentType2 = 'application/json';
+        var payload2 = '{"definitionIds": ["JOURNEY DEFINITION ID"]}';
+        var headers2 = ['Authorization'];
+        var headervalues2 = ["Bearer " + authToken];
+  
+  Write('<br>'+'endpoint '+endPoint)
+    
+  
+var results = HTTP.Post(endPoint, contentType2, payload2, headers2, headervalues2);
+Write('<br>'+' results is ' + results.Response + 'length is ' + (results.Response).length)
+    
+  
+   for(i=0;i<(results.Response).length;i++){
+    var items = Platform.Function.ParseJSON(results.Response[i]).items;
+    var upsertSuccess = journeyHistoryUpsert(items);
+     Write('<br>'+'Reponse is ' +results.Response[i])
+     Write('<br>'+'Success is ' +upsertSuccess)
+  }
+
+     function journeyHistoryUpsert(items, deUpsert) {
+
+        var successful = 0
+    
+        for(i=0; i < items.length; i++) {
+    
+            var id         = items[i].id;
+            var mid       = items[i].mid; 
+            var eventId   = items[i].eventId;
+            var definitionId  = items[i].definitionId;
+            var definitionName  = items[i].definitionName;
+            var eventName   = items[i].eventName;
+            var contactKey   = items[i].contactKey;
+            var transactionTime = items[i].transactionTime;
+            var status       = items[i].status;
+    
+            var filterNames = ['ID','MID','ContactKey','EventID','DefinitionID','DefinitionName','EventName','TransactionTime','Status']
+            var filterValues = [id,mid,contactKey,eventId,definitionId,definitionName,eventName,transactionTime,status]
+    
+            var columnNames = ['LastUpdated']
+            var columnValues = [Now()]
+    
+            var journeyRows = Platform.Function.UpsertData("JourneyHistoryTracking",filterNames,filterValues,columnNames,columnValues)
+            if(journeyRows = 1) {
+              successful += 1 
+            }
+        }
+    
+        return successful;
+    }
+  
+ 
+</script>
